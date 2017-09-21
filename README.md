@@ -76,6 +76,20 @@ in http://flybase.org/static_pages/downloads/IDConv.html convert FBgnXXX in CGXX
 *'DROME_ID_conversion.py'
 generate a table allowing the conversion between DROMEXXXXX (OMA), FBgnXXXXX (BGee) and CGXXXXX (GO term), usefull for the analysis between the different kind of data
 
+*'pair_species_trimming.py'
+to allow a multispecies analysis, the script keeps only ortholog family if the gene is present in the 1 domain modification or no modfication group, for each species
+
+*'expression_analysis_all_species.R'
+logFC analysis for the whole pairwise species comparison
+with or without z-score normalization due to the utilization of different species and logFC fitted on different trend model
+analysis of the modification effect on logFC by Kruskal-Wallis rank sum test
+different plots for results visualization and report
+
+*'expression_analysis_all_species_WhichSpeciesModified_topGO.R'
+generate a table allowing to group the different gene in function of which species are in the modified group
+topGO analysis allows the determination of gene ontology enrichment ('BP' and 'MF') in the domain modification group.
+
+*'gain_loss_domain_DROME.R'
 
 
 
@@ -136,3 +150,13 @@ Output: 'DROME_only_FBgn_names'
 #'DROME_ID_conversion.py'
 Input: 'FlyBase_IDs.txt' and 'DROME_FBgn_names'
 Output: 'DROME_id_converter'
+
+#'pair_species_trimming.py'
+Input: 'final_pair_DROME_Specie2_domain_loss_fbgn' and 'ortholog_DROME_Specie2_domain_nomodif_fbgn' (for the 6 Specie2)
+Output: 'all_species_genes'
+
+#'expression_analysis_all_species.R'
+Input: 'logFC_drome_specie2_QL' (for the 6 Specie2), 'all_species_genes' and 'DROME_id_converter'
+
+#'expression_analysis_all_species_WhichSpeciesModified_topGO.R'
+Input: 'all_species_genes'
