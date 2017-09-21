@@ -348,3 +348,6 @@ model_modif_zscore = lm(logFC ~ as.factor(length_dif), data = common_dataset_com
 qqnorm(residuals(model_modif_zscore)); qqline(residuals(model_modif_zscore))
 anova(model_modif_zscore)
 kruskal.test(logFC ~ as.factor(length_dif), data = common_dataset_completecase_modif_zscore)
+
+#save the data
+save.image(file = 'C:/Users/Claivaz/Desktop/gain_loss_domain_DROME_data')
