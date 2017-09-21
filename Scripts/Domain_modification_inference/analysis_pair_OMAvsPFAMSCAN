@@ -1,0 +1,19 @@
+while IFS= read -r var
+    do
+        seq_sp1=$(echo $var | cut -f1 -d' ')
+        seq_sp2=$(echo $var | cut -f2 -d' ')
+        sp1=$(echo $seq_sp1 | sed 's/[0-9]*//g')
+        sp2=$(echo $seq_sp2 | sed 's/[0-9]*//g')
+       
+        if grep -q $seq_sp1 ortholog_DROME_DROAN_domain; then
+           echo -n "$seq_sp1 yes "
+        else
+           echo -n "$seq_sp1 no "
+        fi
+        if grep -q $seq_sp2 ortholog_DROME_DROAN_domain; then
+           echo "$seq_sp2 yes"
+        else
+            echo "$seq_sp2 no"
+        fi
+
+    done < pairwise_ortholog_DROME_DROAN > ./other/status_output_DROME_DROAN
