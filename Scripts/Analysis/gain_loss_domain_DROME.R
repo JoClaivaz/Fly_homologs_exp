@@ -112,7 +112,7 @@ for (com_gene in 1:dim(common_dataset)[1]){
 for (com_gene in 1:dim(common_dataset)[1]){
   if(length(species_logFC$logFC[(species_logFC$sex == common_dataset$sex[com_gene]) &
                                 (species_logFC$species == common_dataset$species[com_gene]) &
-                                (species_logFC$genes == common_dataset$DROME_genes[com_gene])]) != 0){
+                                (species_logFC$genes == common_dataset$DROME_genes[com_gene])]) == 1){
     common_dataset$logFC[com_gene] = species_logFC$logFC[(species_logFC$sex == common_dataset$sex[com_gene]) &
                                                            (species_logFC$species == common_dataset$species[com_gene]) &
                                                            (species_logFC$genes == common_dataset$DROME_genes[com_gene])]
