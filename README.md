@@ -89,16 +89,15 @@ different plots for results visualization and report
 generate a table allowing to group the different gene in function of which species are in the modified group
 topGO analysis allows the determination of gene ontology enrichment ('BP' and 'MF') in the domain modification group.
 
-*'gain_loss_domain_DROME.R'
-as gain or loss domain can't be inferred, the analysis of the effect on logFC in function of the domain length in DROME in comparison with the domain length of other species is done with this script.
-analysis of the modification effect on logFC by Kruskal-Wallis rank sum test
-different plots for results visualization and report
-
 *'flybase_formatage.py'
 formatage of the flybase file allowing to be read in R (removing warning/missing data). 
 Previously, the file 'gene_rpkm_report_fb_2017_04.tsv' was download from ftp://ftp.flybase.net/releases/FB2017_04/precomputed_files/genes/.
 
-*'Tspec_DROME.R'
+*'GainLossDomain_Tspec_DROME.R'
+'GainLoss step'
+as gain or loss domain can't be inferred, the analysis of the effect on logFC in function of the domain length in DROME in comparison with the domain length of other species is done with this script.
+analysis of the modification effect on logFC by ANOVA and different plots for results visualization and report
+'Tspec step'
 to see whether a DROME tissue has more domain modification in the species than other (tissue specific genes contribute more to the evolution of the specie)
 data visualization
 kruskal-wallis rank sum test and chi-squared test
@@ -172,13 +171,12 @@ Input: 'logFC_drome_specie2_QL' (for the 6 Specie2), 'all_species_genes' and 'DR
 #'expression_analysis_all_species_WhichSpeciesModified_topGO.R'
 Input: 'all_species_genes'
 
-#'gain_loss_domain_DROME.R'
-Input: 'logFC_drome_specie2_QL', 'final_pair_DROME_Specie2_domain_loss' and 'ortholog_DROME_Specie2_domain' (for the 6 Specie2), 'all_species_genes' and 'DROME_id_converter'
-Output: 'gain_loss_domain_DROME_data'
-
 #'flybase_formatage.py'
 Input: 'gene_rpkm_report_fb_2017_04.tsv'
 Output: 'gene_rpkm_report_fb_2017_04_formated'
 
-#'Tspec_DROME.R'
-Input: 'gene_rpkm_report_fb_2017_04_formated' and 'gain_loss_domain_DROME_data'
+#'GainLossDomain_Tspec_DROME.R'
+'GainLoss step'
+Input: 'logFC_drome_specie2_QL', 'final_pair_DROME_Specie2_domain_loss' and 'ortholog_DROME_Specie2_domain' (for the 6 Specie2), 'all_species_genes' and 'DROME_id_converter'
+'Tspec step'
+Input: 'gene_rpkm_report_fb_2017_04_formated' 
