@@ -14,7 +14,7 @@ dict_flybase = {}
 FlyBase_IDs.readline()
 
 for line_flybase in FlyBase_IDs:
-    line_tmp = line_flybase.replace('\n', '').split('\t')
+    line_tmp = line_flybase.replace('\n', '').replace("'", '').split('\t')
     dict_flybase[line_tmp[0]] = line_tmp[3]
 FlyBase_IDs.close()
     
