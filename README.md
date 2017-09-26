@@ -61,7 +61,7 @@ for each species, the script the different states available in the data expressi
 *extraction of protein length
 using EMBOSS software, as input 'ortholog_DROME_Specie2' (recovered from OMA) and as output 'DROME_Specie2_protein_length.txt'
 
-*'edgeR_analysis_DROME_Specie2.R'
+*'edgeR_topGO_analysis.R'
 for each pairwise species comparison, the applied edgeR pipeline allows the logFC differential gene expression inference by quasi-likelihood method, after library size and gene length normalization. The script store logFC value and p-value independently in different files.
 analysis of the modification effect on logFC by ANOVA
 topGO analysis allows the determination of gene ontology enrichment ('BP' and 'MF') in the domain modification group.
