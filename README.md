@@ -63,14 +63,14 @@ using EMBOSS software, as input 'ortholog_DROME_Specie2' (recovered from OMA) an
 
 *'edgeR_analysis_DROME_Specie2.R'
 for each pairwise species comparison, the applied edgeR pipeline allows the logFC differential gene expression inference by quasi-likelihood method, after library size and gene length normalization. The script store logFC value and p-value independently in different files.
-analysis of the modification effect on logFC by Kruskal-Wallis rank sum test
+analysis of the modification effect on logFC by ANOVA
 topGO analysis allows the determination of gene ontology enrichment ('BP' and 'MF') in the domain modification group.
 different plots for results visualization and report
 
 *'DROME_id_extraction.py'
 extraction of the different FBgn DROME identifier present in the different pairwise species comparisons datasets.
 
-*obtention of CG identifier (not mandatory)
+*obtention of CG identifier (not mandatory, if it isnt done 'DROME_ID_conversion.py' should be adapted)
 in http://flybase.org/static_pages/downloads/IDConv.html convert FBgnXXX in CGXXXX using 'DROME_only_FBgn_names' file as input, and 'FlyBase_IDs.txt' as output
 
 *'DROME_ID_conversion.py'
@@ -150,9 +150,9 @@ Output: 'data_expression_DROME_Specie2' and 'data_expression_DROME_Specie2_nomod
 #'analysis_states_pair'
 Input: 'data_expression_DROME_specie2'
 
-#'edgeR_analysis_DROME_Specie2'
+#'edgeR_topGO_analysis.R'
 Input: 'data_expression_DROME_Specie2', 'data_expression_DROME_Specie2_nomodif', 'DROME_Specie2_protein_length.txt' and 'DROME_id_converter' (in order to have DROME gene ID converter, logFC table should previously be inferred and stored).
-Output: 'logFC_drome_specie2_QL' and 'pvalue_drome_specie2_QL'
+Output: 'logFC_drome_specie2_QL', 'pvalue_drome_specie2_QL', 'specie2_topGO_BP', 'specie2_topGO_MF' and 'GO_graph'
 
 #'DROME_id_extraction.py'
 Input: 'logFC_drome_specie2_QL' tables for each pairwise species, 'ortholog_DROME_DROAN_domain_nomodif_fbgn' and 'final_pair_DROME_DROAN_domain_loss_fbgn'
