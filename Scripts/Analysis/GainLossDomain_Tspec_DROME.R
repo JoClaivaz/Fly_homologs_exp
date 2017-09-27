@@ -92,6 +92,22 @@ flybase_expression_organization_bysex = function(fly_exp_cond, considered_sex, w
   return(fly_exp_cond)
 }
 
+flybase_expression_organization_l3 = function(fly_exp_cond){
+  fly_exp_cond = separate(fly_exp_cond, col = 'RNASource_name', sep = '_', into = c('x1', 'x2', 'x3', 'x4', 'tissue'))
+  fly_exp_cond$tissue = as.factor(fly_exp_cond$tissue)
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn + tissue, data = fly_exp_cond, paste, collapse = ' ')
+  
+  tissue_list = as.vector(unique(fly_exp_cond$tissue))
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn, data = fly_exp_cond, paste, collapse = '_')
+  fly_exp_cond = separate(fly_exp_cond, col = 'RPKM_value', sep = '_', into = tissue_list)
+  
+  for(col_num in 2:dim(fly_exp_cond)[2]){
+    fly_exp_cond[,col_num] = as.numeric(fly_exp_cond[,col_num])
+  }
+  
+  return(fly_exp_cond)
+}
+
 log_transformation_rpkm = function(data_frame){
   for (i in 2:dim(data_frame)[2]){
     data_frame[,i] = log2(data_frame[,i] + 0.000001)
@@ -499,3 +515,89 @@ pchisq(chi_virf, df = df_virf, lower.tail = F)
 #in female, modification occured differentially in function of the tissue, some tissues are more subject to domain modification
 #not in male
 #slignthy in virF
+
+####2.chosen state for tissue spec: development time L3####
+#sort dataset and filter out not considered states
+flybase_expression_l3 = sort_RNASource_name_keep(dataset_flybase = flybase_expression, 
+                                                 regexp_pattern = 'L3')
+
+flybase_expression_l3$RNASource_name = as.character(flybase_expression_l3$RNASource_name)
+unique(flybase_expression_l3$RNASource_name)
+flybase_expression_l3$RNASource_name[flybase_expression_l3$RNASource_name == 'mE_mRNA_L3_CNS'] = 'mE_mRNA_L3_No_CNS'
+flybase_expression_l3$RNASource_name[flybase_expression_l3$RNASource_name == 'mE_mRNA_L3_Wand_imag_disc'] = 'mE_mRNA_L3_Wand_imagdisc'
+flybase_expression_l3$RNASource_name[flybase_expression_l3$RNASource_name == 'mE_mRNA_L3_Wand_dig_sys'] = 'mE_mRNA_L3_Wand_digsys'
+#
+
+#data organization
+flybase_expression_l3 = flybase_expression_organization_l3(fly_exp_cond = flybase_expression_l3)
+#
+
+#Tspec calculation
+flybase_expression_l3 = Tspec_inference(flybase_expression_l3)
+#
+
+#Inference of ubiquitous and specific gene and determine which it's the most expressed tissue for specific genes
+flybase_expression_l3 = specificity_inference(flybase_expression_data = flybase_expression_l3,
+                                                     threshold_specificity = 0.8)
+#
+
+###analysis
+#dataset modification and control
+flybase_expression_l3_modified = flybase_expression_l3[flybase_expression_l3$FBgn %in% modified_gene,]
+flybase_expression_l3_control = flybase_expression_l3[!(flybase_expression_l3$FBgn %in% modified_gene),]
+
+hist(flybase_expression_l3_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in L3 fly', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_l3_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+fb_l3_c = table(flybase_expression_l3_control$specificity)
+fb_l3_m_tmp = table(flybase_expression_l3_modified$specificity)
+fb_l3_m = fb_l3_c
+for (list_tmp in 1:dim(fb_l3_m)){
+  if (names(fb_l3_m[list_tmp]) %in% names(fb_l3_m_tmp)){
+    fb_l3_m[list_tmp] = fb_l3_m_tmp[names(fb_l3_m[list_tmp])]
+  }else{
+    fb_l3_m[list_tmp] = 0
+  }
+}
+
+col = palette()
+considered_table = fb_l3_c
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in control L3 genes", col = col)
+
+considered_table = fb_l3_m
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in modified L3 genes", col = col)
+
+#test anova application
+anova_df_l3 = rbind(flybase_expression_l3_control, flybase_expression_l3_modified)
+anova_df_l3$modif_status = c(rep(0, length(flybase_expression_l3_control$tspec)),
+                                 rep(1, length(flybase_expression_l3_modified$tspec)))
+anova_df_l3$modif_status = as.factor(anova_df_l3$modif_status)
+
+model_test_l3 = aov(anova_df_l3$tspec ~ anova_df_l3$modif_status)
+qqnorm(residuals(model_test_l3)); qqline(residuals(model_test_l3))
+summary(model_test_l3)
+kruskal.test(anova_df_l3$tspec ~ anova_df_l3$modif_status)
+
+#table proportion
+fb_l3_c_p = fb_l3_c / sum(fb_l3_c)
+fb_l3_m_p = fb_l3_m / sum(fb_l3_m)
+
+#chi-square test: comparison between control and modification 
+n_l3 = sum(fb_l3_c +  fb_l3_m)
+n_l3_c = sum(fb_l3_c)
+n_l3_m = sum(fb_l3_m)
+p_l3 = n_l3_m / (n_l3_c + n_l3_m)
+s_l3 = fb_l3_c +  fb_l3_m
+exp_l3_m = s_l3 * p_l3
+exp_l3_c = s_l3 * (1 - p_l3)
+
+chi_l3 = sum((fb_l3_m - exp_l3_m)^2 / exp_l3_m) + sum((fb_l3_c - exp_l3_c)^2 / exp_l3_c)
+df_l3 = length(fb_l3_c) - 1
+pchisq(chi_l3, df = df_l3, lower.tail = F)
+
+#no difference in tissue proportion between modification groups
