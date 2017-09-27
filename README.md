@@ -193,5 +193,31 @@ Input: 'gene_rpkm_report_fb_2017_04_formated'
 
 ##Pipeline
 #Domain Inference
+1. recover fasta sequence from http://omabrowser.org/oma/export/
+2. recover homology relationship from http://omabrowser.org/oma/genomePW/ 
+3. run python script 'extract_ortolog_fasta_sequence.py'
+4. run perl tool `pfamscan`
+5. run 'domainDIFF'
+6. run 'extract_ortholog_modification.py'
+7. run 'extract_all_ortholog_from_pfamscan.py'
+8. run 'analysis_pair_OMAvsPFAMSCAN'
+9. run 'status_inference.R'
+10. run 'extract_both_status_pfamscan.py'
+11. run 'data_analysis_repetition_domain.R'
+12. run 'extract_ortholog_domain_loss_domainDiff.py'
+13. run 'trimming_ortholog.py'
 
 #Analysis
+1. recovered expression data from http://bgee.org/
+2. run 'data_expression_extraction_final_pair.py'
+3. run 'analysis_state_pair.py'
+4. extract the protein length with EMBOSS
+5. run 'edgeR_topGO_analysis.R'
+6. run 'DROME_id_extraction.py'
+7. recover table of conversion from http://flybase.org/static_pages/downloads/IDConv.html
+8. run 'DROME_id_conversion.py'
+9. run 'pair_species_trimming.py'
+10. run 'expression_analysis_all_species.R'
+11. run 'expression_analysis_all_species_WhichSpeciesModified_topGO.R'
+12. run 'flybase_formatage.py'
+13. run 'GainLossDomain_Tspec_DROME.R'
