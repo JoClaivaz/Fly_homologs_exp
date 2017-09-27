@@ -48,6 +48,9 @@ inference whether loss domain is repeted in the protein architecture (no informa
 *'extract_ortholog_domain_loss_domainDiff.py'
 intersect of ortholog pair with one domain modification in N- or C- termini of the protein inferred by domainDIFF and the loss domain is not part of a repetition inferred by data_analysis_repetition_domain.R.
 
+*'trimming_ortholog.py'
+create a file containing DROME ortholog pair identifier which are not ortholog 1:1
+
 ##Analysis
 *'extract_fbgn_OMAname.py'
 extract FBgn identifier corresponding to the OMA identifier, allowing the bound between analysis and domain modification inference.
@@ -137,6 +140,11 @@ Output: 'DROME_Specie2_domain_loss'
 Input: 'DROME_Specie2_domain_loss' and 'ortholog_DROME_Specie2_domain_modifications'
 Output: 'final_pair_DROME_Specie2_domain_loss'
 
+#'trimming_ortholog.py'
+Input: 'pairwise_ortholog_DROME_Specie2'
+Output: 'ortholog_DROME_Specie2_not_consider'
+
+
 ##'Analysis' subfolder
 #'extract_fbgn_OMAname.py'
 Input: 'final_pair_DROME_Specie2_domain_loss', 'final_pair_DROME_Specie2_domain_nomodif' and 'ortholog_DROME_Specie2'
@@ -150,7 +158,7 @@ Output: 'data_expression_DROME_Specie2' and 'data_expression_DROME_Specie2_nomod
 Input: 'data_expression_DROME_specie2'
 
 #'edgeR_topGO_analysis.R'
-Input: 'data_expression_DROME_Specie2', 'data_expression_DROME_Specie2_nomodif', 'DROME_Specie2_protein_length.txt' and 'DROME_id_converter' (in order to have DROME gene ID converter, logFC table should previously be inferred and stored).
+Input: 'data_expression_DROME_Specie2', 'data_expression_DROME_Specie2_nomodif', 'DROME_Specie2_protein_length.txt', 'ortholog_DROME_Specie2_not_consider' and 'DROME_id_converter' (in order to have DROME gene ID converter, logFC table should previously be inferred and stored).
 Output: 'logFC_drome_specie2_QL', 'pvalue_drome_specie2_QL', 'specie2_topGO_BP', 'specie2_topGO_MF' and 'GO_graph'
 
 #'DROME_id_extraction.py'
@@ -180,3 +188,8 @@ Output: 'gene_rpkm_report_fb_2017_04_formated'
 Input: 'logFC_drome_specie2_QL', 'final_pair_DROME_Specie2_domain_loss' and 'ortholog_DROME_Specie2_domain' (for the 6 Specie2), 'all_species_genes' and 'DROME_id_converter'
 'Tspec step'
 Input: 'gene_rpkm_report_fb_2017_04_formated' 
+
+
+
+##Pipeline
+#Domain Inference

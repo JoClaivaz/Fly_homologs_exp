@@ -76,6 +76,24 @@ data_organization = function(modif_group_file, control_group_file){
   return(reduced_data)
 }
 
+remove_ortholog_not_1_1 = function(ID_converter_file, reduced_data, not_considered_ortholog_file){
+  ID_converter = read.table(ID_converter_file, sep = '\t')
+  not_considered_ortholog = read.table(not_considered_ortholog_file)
+  not_considered_ortholog$V1 = as.character(not_considered_ortholog$V1)
+  not_considered_ortholog$V2 = as.character(not_considered_ortholog$V2)
+  ID_converter$V1 = as.character(ID_converter$V1)
+  ID_converter$V2 = as.character(ID_converter$V2)
+  for(pair_line in 1:dim(not_considered_ortholog)[1]){
+    if(length(ID_converter$V2[ID_converter$V1 == not_considered_ortholog[pair_line, 1]]) != 0){
+      not_considered_ortholog[pair_line,2] = ID_converter$V2[ID_converter$V1 == not_considered_ortholog[pair_line, 1]]
+    }
+  }
+  
+  reduced_data = reduced_data[!(reduced_data$geneID_fbgn %in% not_considered_ortholog$V2),]
+  
+  return(reduced_data)
+}
+
 expression_data_considering_ortholog_4read = function(reduced_data, ortholog_pair_file){
   
   ortholog_pair = read.table(ortholog_pair_file, sep = '\t')
@@ -190,7 +208,8 @@ expression_data_to_dataframe = function(reduced_data, ortholog_pair_file_modif, 
     data_control = expression_data_considering_ortholog_6read(reduced_data, ortholog_pair_file_control)
   }
   
-  #in control some NA expression value, need to remove it for some species
+  #some NA expression value, need to remove it for some species
+  data_modification = data_modification[complete.cases(data_modification),]
   data_control = data_control[complete.cases(data_control),]
   #
   
@@ -344,6 +363,27 @@ reduced_data_drovi = data_organization(modif_group_file = 'D:/UNIL/Master/Master
                                        control_group_file = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/data_expression_DROME_DROVI_nomodif')
 reduced_data_droya = data_organization(modif_group_file = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/data_expression_DROME_DROYA',
                                        control_group_file = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/data_expression_DROME_DROYA_nomodif')
+#
+
+####Remove not ortholog 1:1 pairs (need Gene_converter if not available complete this script with all ortholog and rerun when the file is available####
+reduced_data_droan = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_droan,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROAN_not_consider')
+reduced_data_dromo = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_dromo,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROMO_not_consider')
+reduced_data_drops = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_drops,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROPS_not_consider')
+reduced_data_drosi = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_drosi,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROSI_not_consider')
+reduced_data_drovi = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_drovi,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROVI_not_consider')
+reduced_data_droya = remove_ortholog_not_1_1(ID_converter = 'D:/UNIL/Master/Master_Project/Data/expression_analysis/all_droso/DROME_id_converter',
+                                             reduced_data = reduced_data_droya,
+                                             not_considered_ortholog = 'D:/UNIL/Master/Master_Project/Data/OMA/ortholog_DROME_DROYA_not_consider')
 #
 
 ####Expression data into ortholog's dataframe and store control/modification pair genes####
