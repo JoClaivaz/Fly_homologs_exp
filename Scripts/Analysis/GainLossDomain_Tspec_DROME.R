@@ -2,10 +2,10 @@
 Joaquim Claivaz
 170926
 
-Consider only ortholog 1:1
 For each complete case (for each species: in control or in one domain modification group and complete expresssion data)
 determine whether an ortholog DROME gain or loss domain and see effect on expression
 Determine also Tspec
+Consider only ortholog 1:1
 '''
 #require library
 library(tidyr)
@@ -51,6 +51,47 @@ extraction_name_specie2 = function(specie2_table){
   return(specie2_pair)
 }
 
+sort_RNASource_name_keep = function(dataset_flybase, regexp_pattern){
+  keep_state = grepl(regexp_pattern, unique(as.character(dataset_flybase$RNASource_name)))
+  dataset_flybase = dataset_flybase[dataset_flybase$RNASource_name %in% 
+                                      unique(as.character(dataset_flybase$RNASource_name))[keep_state],]
+  return(dataset_flybase)
+}
+
+sort_RNASource_name_notkeep = function(dataset_flybase, regexp_pattern){
+  notkeep_state = grepl(regexp_pattern, unique(as.character(dataset_flybase$RNASource_name)))
+  keep_state = grepl(FALSE, notkeep_state)
+  dataset_flybase = dataset_flybase[dataset_flybase$RNASource_name %in% 
+                                      unique(as.character(dataset_flybase$RNASource_name))[keep_state],]
+  return(dataset_flybase)
+}
+
+flybase_expression_organization_bysex = function(fly_exp_cond, considered_sex, with_UniS = TRUE){
+  fly_exp_cond = separate(fly_exp_cond, col = 'RNASource_name', sep = '_', into = c('x1', 'x2', 'x3', 'Sex', 'x4', 'tissue'))
+  fly_exp_cond$Sex = as.factor(fly_exp_cond$Sex)
+  fly_exp_cond$tissue = as.factor(fly_exp_cond$tissue)
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn + tissue + Sex, data = fly_exp_cond, paste, collapse = ' ')
+  fly_exp_cond_tmp = fly_exp_cond[fly_exp_cond$Sex == considered_sex,]
+  
+  if(with_UniS == TRUE){
+    fly_exp_cond_unisex = fly_exp_cond[fly_exp_cond$Sex == 'UniS',]
+    fly_exp_cond = rbind(fly_exp_cond_tmp, fly_exp_cond_unisex)
+  }else{
+    fly_exp_cond = fly_exp_cond_tmp
+  }
+  
+  tissue_list = as.vector(unique(fly_exp_cond$tissue))
+  fly_exp_cond$Sex = NULL
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn, data = fly_exp_cond, paste, collapse = '_')
+  fly_exp_cond = separate(fly_exp_cond, col = 'RPKM_value', sep = '_', into = tissue_list)
+  
+  for(col_num in 2:dim(fly_exp_cond)[2]){
+    fly_exp_cond[,col_num] = as.numeric(fly_exp_cond[,col_num])
+  }
+  
+  return(fly_exp_cond)
+}
+
 log_transformation_rpkm = function(data_frame){
   for (i in 2:dim(data_frame)[2]){
     data_frame[,i] = log2(data_frame[,i] + 0.000001)
@@ -77,6 +118,36 @@ fTau <- function(x){
     res <- NA
   } 
   return(res)
+}
+
+Tspec_inference = function(flybase_expression_data){
+  flybase_expression_data = log_transformation_rpkm(flybase_expression_data)
+  flybase_expression_data$tspec = NA
+  for (gene_row in 1:dim(flybase_expression_data)[1]){
+    flybase_expression_data$tspec[gene_row] = fTau(flybase_expression_data[gene_row, 3:dim(flybase_expression_data)[2]-1])
+  }
+  
+  return(flybase_expression_data)
+}
+
+specificity_inference = function(flybase_expression_data, threshold_specificity = 0.8){
+  column_tmp = dim(flybase_expression_data)[2]-1
+  
+  #status inference of tspec: ubiquitous or specific (threshold 0.8)
+  flybase_expression_data$status = 'ubiquitous'
+  flybase_expression_data$status[flybase_expression_data$tspec > threshold_specificity] = 'specific'
+  flybase_expression_data$status = as.factor(flybase_expression_data$status)
+  
+  #for tissue specific gene infere which tissue specificity
+  flybase_expression_data$specificity = 'ubiquitous'
+  
+  for (gene_row in 1:dim(flybase_expression_data)[1]){
+    if (flybase_expression_data$status[gene_row] == 'specific'){
+      flybase_expression_data$specificity[gene_row] = names(flybase_expression_data[gene_row,2:column_tmp])[which(flybase_expression_data[gene_row,2:column_tmp] == max(flybase_expression_data[gene_row,2:column_tmp]))] 
+    }
+  }
+  
+  return(flybase_expression_data) 
 }
 #
 
@@ -116,7 +187,7 @@ for (com_gene in 1:dim(common_dataset)[1]){
 }
 #
 
-#Intersect among common_dataset and species_logFC (consider only ortholog 1:1 between pairwise species)
+#Intersect among common_dataset and species_logFC (remove duplicated genes (in-paralogs) present in species2)
 for (com_gene in 1:dim(common_dataset)[1]){
   if(length(species_logFC$logFC[(species_logFC$sex == common_dataset$sex[com_gene]) &
                                 (species_logFC$species == common_dataset$species[com_gene]) &
@@ -251,113 +322,72 @@ flybase_expression = flybase_expression[flybase_expression$FBgn %in% common_data
 flybase_expression = flybase_expression[flybase_expression$Parent_library_name == 'modENCODE_mRNA-Seq_tissues',]
 #
 
-
-
-
-
 #see different state available (29 on 124) and filter out
-unique(flybase_expression$RNASource_name)
-#chosen one: development time 4d, without VirF
-keep_state = grepl('4d', unique(as.character(flybase_expression$RNASource_name)))
-flybase_expression = flybase_expression[flybase_expression$RNASource_name %in% 
-                                          unique(as.character(flybase_expression$RNASource_name))[keep_state],]
-notkeep_state = grepl('VirF', unique(as.character(flybase_expression$RNASource_name)))
-keep_state = grepl(FALSE, notkeep_state)
-flybase_expression = flybase_expression[flybase_expression$RNASource_name %in% 
-                                          unique(as.character(flybase_expression$RNASource_name))[keep_state],]
-flybase_expression$RNASource_name = as.character(flybase_expression$RNASource_name)
-flybase_expression$RNASource_name[flybase_expression$RNASource_name == 'mE_mRNA_A_4d_dig_sys'] = 'mE_mRNA_A_UniS_4d_digsys'
-flybase_expression$RNASource_name[flybase_expression$RNASource_name == 'mE_mRNA_A_4d_carcass'] = 'mE_mRNA_A_UniS_4d_carcass'
-flybase_expression$RNASource_name[flybase_expression$RNASource_name == 'mE_mRNA_A_MateM_4d_acc_gland'] = 'mE_mRNA_A_MateM_4d_accgland'
+#unique(flybase_expression$RNASource_name)
+#
+
+####1.chosen state for tissue spec in function of sex: development time 4d, with VirF (virgine female ?!)####
+#sort dataset and filter out not considered states
+flybase_expression_4d = sort_RNASource_name_keep(dataset_flybase = flybase_expression, 
+                                                 regexp_pattern = '4d')
+  
+flybase_expression_4d$RNASource_name = as.character(flybase_expression_4d$RNASource_name)
+flybase_expression_4d$RNASource_name[flybase_expression_4d$RNASource_name == 'mE_mRNA_A_4d_dig_sys'] = 'mE_mRNA_A_UniS_4d_digsys'
+flybase_expression_4d$RNASource_name[flybase_expression_4d$RNASource_name == 'mE_mRNA_A_4d_carcass'] = 'mE_mRNA_A_UniS_4d_carcass'
+flybase_expression_4d$RNASource_name[flybase_expression_4d$RNASource_name == 'mE_mRNA_A_MateM_4d_acc_gland'] = 'mE_mRNA_A_MateM_4d_accgland'
+#
 
 #data organization
-flybase_expression = separate(flybase_expression, col = 'RNASource_name', sep = '_', into = c('x1', 'x2', 'x3', 'Sex', 'x4', 'tissue'))
-flybase_expression$Sex = as.factor(flybase_expression$Sex)
-flybase_expression$tissue = as.factor(flybase_expression$tissue)
-str(flybase_expression)
-
-flybase_expression = aggregate(RPKM_value ~ FBgn + tissue + Sex, data = flybase_expression, paste, collapse = ' ')
-flybase_expression_unisex = flybase_expression[flybase_expression$Sex == 'UniS',]
-flybase_expression_male = flybase_expression[flybase_expression$Sex == 'MateM',]
-flybase_expression_female = flybase_expression[flybase_expression$Sex == 'MateF',]
-
-flybase_expression_male = rbind(flybase_expression_male, flybase_expression_unisex)
-flybase_expression_female = rbind(flybase_expression_female, flybase_expression_unisex)
-flybase_expression_male$Sex = NULL
-flybase_expression_female$Sex = NULL
-str(flybase_expression_female)
-
-flybase_expression_male = aggregate(RPKM_value ~ FBgn, data = flybase_expression_male, paste, collapse = '_')
-flybase_expression_male = separate(flybase_expression_male, col = 'RPKM_value', sep = '_', into = c('accgland', 'head', 'testis', 'carcass', 'digsys'))
-flybase_expression_female = aggregate(RPKM_value ~ FBgn, data = flybase_expression_female, paste, collapse = '_')
-flybase_expression_female = separate(flybase_expression_female, col = 'RPKM_value', sep = '_', into = c('head', 'ovary', 'carcass', 'digsys'))
-flybase_expression_female[,2] = as.numeric(flybase_expression_female[,2])
-flybase_expression_female[,3] = as.numeric(flybase_expression_female[,3])
-flybase_expression_female[,4] = as.numeric(flybase_expression_female[,4])
-flybase_expression_female[,5] = as.numeric(flybase_expression_female[,5])
-flybase_expression_male[,2] = as.numeric(flybase_expression_male[,2])
-flybase_expression_male[,3] = as.numeric(flybase_expression_male[,3])
-flybase_expression_male[,4] = as.numeric(flybase_expression_male[,4])
-flybase_expression_male[,5] = as.numeric(flybase_expression_male[,5])
-flybase_expression_male[,6] = as.numeric(flybase_expression_male[,6])
-str(flybase_expression_male)
-str(flybase_expression_female)
+flybase_expression_4d_male = flybase_expression_organization_bysex(fly_exp_cond = flybase_expression_4d, 
+                                                                  considered_sex = 'MateM', with_UniS = TRUE)
+flybase_expression_4d_female = flybase_expression_organization_bysex(fly_exp_cond = flybase_expression_4d, 
+                                                                   considered_sex = 'MateF', with_UniS = TRUE)
+flybase_expression_4d_virf = flybase_expression_organization_bysex(fly_exp_cond = flybase_expression_4d, 
+                                                                   considered_sex = 'Virf', with_UniS = TRUE)
+#
 
 #Tspec calculation
-flybase_expression_female = log_transformation_rpkm(flybase_expression_female)
-flybase_expression_female$tspec = NA
-for (gene_row in 1:dim(flybase_expression_female)[1]){
-  flybase_expression_female$tspec[gene_row] = fTau(flybase_expression_female[gene_row, 3:dim(flybase_expression_female)[2]-1])
-}
+flybase_expression_4d_female = Tspec_inference(flybase_expression_4d_female)
+flybase_expression_4d_male = Tspec_inference(flybase_expression_4d_male)
+flybase_expression_4d_virf = Tspec_inference(flybase_expression_4d_virf)
+#
 
-flybase_expression_male = log_transformation_rpkm(flybase_expression_male)
-flybase_expression_male$tspec = NA
-for (gene_row in 1:dim(flybase_expression_male)[1]){
-  flybase_expression_male$tspec[gene_row] = fTau(flybase_expression_male[gene_row, 3:dim(flybase_expression_male)[2]-1])
-}
-
-#status inference of tspec: ubiquitous or specific (threshold 0.8)
-flybase_expression_female$status = 'ubiquitous'
-flybase_expression_male$status = 'ubiquitous'
-flybase_expression_female$status[flybase_expression_female$tspec > 0.8] = 'specific'
-flybase_expression_male$status[flybase_expression_male$tspec > 0.8] = 'specific'
-flybase_expression_female$status = as.factor(flybase_expression_female$status)
-flybase_expression_male$status = as.factor(flybase_expression_male$status)
-
-#for tissue specific gene infere which tissue specificity
-flybase_expression_female$specificity = 'ubiquitous'
-for (gene_row in 1:dim(flybase_expression_female)[1]){
-  if (flybase_expression_female$status[gene_row] == 'specific'){
-    flybase_expression_female$specificity[gene_row] = names(flybase_expression_female[gene_row,2:5])[which(flybase_expression_female[gene_row,2:5] == max(flybase_expression_female[gene_row,2:5]))] 
-  }
-}
-
-flybase_expression_male$specificity = 'ubiquitous'
-for (gene_row in 1:dim(flybase_expression_male)[1]){
-  if (flybase_expression_male$status[gene_row] == 'specific'){
-    flybase_expression_male$specificity[gene_row] = names(flybase_expression_male[gene_row,2:6])[which(flybase_expression_male[gene_row,2:6] == max(flybase_expression_male[gene_row,2:6]))] 
-  }
-}
+#Inference of ubiquitous and specific gene and determine which it's the most expressed tissue for specific genes
+flybase_expression_4d_female = specificity_inference(flybase_expression_data = flybase_expression_4d_female,
+                                                     threshold_specificity = 0.8)
+flybase_expression_4d_male = specificity_inference(flybase_expression_data = flybase_expression_4d_male,
+                                                     threshold_specificity = 0.8)
+flybase_expression_4d_virf = specificity_inference(flybase_expression_data = flybase_expression_4d_virf,
+                                                     threshold_specificity = 0.8)
+#
 
 ###analysis
 #dataset modification and control
-flybase_expression_male_modified = flybase_expression_male[flybase_expression_male$FBgn %in% modified_gene,]
-flybase_expression_male_control = flybase_expression_male[!(flybase_expression_male$FBgn %in% modified_gene),]
-flybase_expression_female_modified = flybase_expression_female[flybase_expression_female$FBgn %in% modified_gene,]
-flybase_expression_female_control = flybase_expression_female[!(flybase_expression_female$FBgn %in% modified_gene),]
+flybase_expression_4d_male_modified = flybase_expression_4d_male[flybase_expression_4d_male$FBgn %in% modified_gene,]
+flybase_expression_4d_male_control = flybase_expression_4d_male[!(flybase_expression_4d_male$FBgn %in% modified_gene),]
+flybase_expression_4d_female_modified = flybase_expression_4d_female[flybase_expression_4d_female$FBgn %in% modified_gene,]
+flybase_expression_4d_female_control = flybase_expression_4d_female[!(flybase_expression_4d_female$FBgn %in% modified_gene),]
+flybase_expression_4d_virf_modified = flybase_expression_4d_virf[flybase_expression_4d_virf$FBgn %in% modified_gene,]
+flybase_expression_4d_virf_control = flybase_expression_4d_virf[!(flybase_expression_4d_virf$FBgn %in% modified_gene),]
 
-hist(flybase_expression_male_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fly male in function of the status', xlab = 'Tspec value', cex.main = 0.9)
-hist(flybase_expression_male_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
-legend('topleft', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+hist(flybase_expression_4d_male_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fly male in function of the status', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_4d_male_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
 
-hist(flybase_expression_female_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fly female in function of the status', xlab = 'Tspec value', cex.main = 0.9)
-hist(flybase_expression_female_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
-legend('topleft', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+hist(flybase_expression_4d_female_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fly mate female in function of the status', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_4d_female_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
 
-fb_female_c = table(flybase_expression_female_control$specificity)
-fb_female_m = table(flybase_expression_female_modified$specificity)
-fb_male_c = table(flybase_expression_male_control$specificity)
-fb_male_m = table(flybase_expression_male_modified$specificity)
+hist(flybase_expression_4d_virf_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fly virgin female in function of the status', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_4d_virf_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+fb_female_c = table(flybase_expression_4d_female_control$specificity)
+fb_female_m = table(flybase_expression_4d_female_modified$specificity)
+fb_male_c = table(flybase_expression_4d_male_control$specificity)
+fb_male_m = table(flybase_expression_4d_male_modified$specificity)
+fb_virf_c = table(flybase_expression_4d_virf_control$specificity)
+fb_virf_m = table(flybase_expression_4d_virf_modified$specificity)
 
 col = palette()
 considered_table = fb_male_c
@@ -373,32 +403,61 @@ pie(considered_table, labels = lbls, cex = 0.5,
 considered_table = fb_female_c
 lbls = paste(names(considered_table), sep= "")
 pie(considered_table, labels = lbls, cex = 0.5, 
-    main = "Specificity in control female genes", col = col[2:6])
+    main = "Specificity in control mate female genes", col = col[2:6])
 
 considered_table = fb_female_m
 lbls = paste(names(considered_table), sep= "")
 pie(considered_table, labels = lbls, cex = 0.5, 
-    main = "Specificity in modified female genes", col = col[2:6])
+    main = "Specificity in modified mate female genes", col = col[2:6])
+
+considered_table = fb_virf_c
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in control virgin female genes", col = col[2:6])
+
+considered_table = fb_virf_m
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in modified virgin female genes", col = col[2:6])
 
 #test anova application
-model_test = lm(c(flybase_expression_female_control$tspec, flybase_expression_female_modified$tspec) ~ 
-                  as.factor(c(rep(1, length(flybase_expression_female_control$tspec)),
-                              rep(0, length(flybase_expression_female_modified$tspec)))))
-qqnorm(residuals(model_test)); qqline(residuals(model_test))
+anova_df_female = rbind(flybase_expression_4d_female_control, flybase_expression_4d_female_modified)
+anova_df_female$modif_status = c(rep(0, length(flybase_expression_4d_female_control$tspec)),
+                                 rep(1, length(flybase_expression_4d_female_modified$tspec)))
+anova_df_female$modif_status = as.factor(anova_df_female$modif_status)
 
-kruskal.test(c(flybase_expression_female_control$tspec, flybase_expression_female_modified$tspec) ~ 
-               as.factor(c(rep(1, length(flybase_expression_female_control$tspec)),
-                           rep(0, length(flybase_expression_female_modified$tspec)))))
+anova_df_male = rbind(flybase_expression_4d_male_control, flybase_expression_4d_male_modified)
+anova_df_male$modif_status = c(rep(0, length(flybase_expression_4d_male_control$tspec)),
+                                 rep(1, length(flybase_expression_4d_male_modified$tspec)))
+anova_df_male$modif_status = as.factor(anova_df_male$modif_status)
 
-kruskal.test(c(flybase_expression_male_control$tspec, flybase_expression_male_modified$tspec) ~ 
-               as.factor(c(rep(1, length(flybase_expression_male_control$tspec)),
-                           rep(0, length(flybase_expression_male_modified$tspec)))))
+anova_df_virf = rbind(flybase_expression_4d_virf_control, flybase_expression_4d_virf_modified)
+anova_df_virf$modif_status = c(rep(0, length(flybase_expression_4d_virf_control$tspec)),
+                                 rep(1, length(flybase_expression_4d_virf_modified$tspec)))
+anova_df_virf$modif_status = as.factor(anova_df_virf$modif_status)
+
+model_test_female = aov(anova_df_female$tspec ~ anova_df_female$modif_status)
+qqnorm(residuals(model_test_female)); qqline(residuals(model_test_female))
+summary(model_test_female)
+kruskal.test(anova_df_female$tspec ~ anova_df_female$modif_status)
+
+model_test_male = aov(anova_df_male$tspec ~ anova_df_male$modif_status)
+qqnorm(residuals(model_test_male)); qqline(residuals(model_test_male))
+summary(model_test_male)
+kruskal.test(anova_df_male$tspec ~ anova_df_male$modif_status)
+
+model_test_virf = aov(anova_df_virf$tspec ~ anova_df_virf$modif_status)
+qqnorm(residuals(model_test_virf)); qqline(residuals(model_test_virf))
+summary(model_test_virf)
+kruskal.test(anova_df_virf$tspec ~ anova_df_virf$modif_status)
 
 #table proportion
 fb_female_m_p = fb_female_m / sum(fb_female_m)
 fb_female_c_p = fb_female_c / sum(fb_female_c)
 fb_male_m_p = fb_male_m / sum(fb_male_m)
 fb_male_c_p = fb_male_c / sum(fb_male_c)
+fb_virf_m_p = fb_virf_m / sum(fb_virf_m)
+fb_virf_c_p = fb_virf_c / sum(fb_virf_c)
 
 #chi-square test: comparison between control and modification 
 n_female = sum(fb_female_c +  fb_female_m)
@@ -425,5 +484,18 @@ chi_male = sum((fb_male_m - exp_male_m)^2 / exp_male_m) + sum((fb_male_c - exp_m
 df_male = length(fb_male_c) - 1
 pchisq(chi_male, df = df_male, lower.tail = F)
 
+n_virf = sum(fb_virf_c +  fb_virf_m)
+n_virf_c = sum(fb_virf_c)
+n_virf_m = sum(fb_virf_m)
+p_virf = n_virf_m / (n_virf_c + n_virf_m)
+s_virf = fb_virf_c +  fb_virf_m
+exp_virf_m = s_virf * p_virf
+exp_virf_c = s_virf * (1 - p_virf)
+
+chi_virf = sum((fb_virf_m - exp_virf_m)^2 / exp_virf_m) + sum((fb_virf_c - exp_virf_c)^2 / exp_virf_c)
+df_virf = length(fb_virf_c) - 1
+pchisq(chi_virf, df = df_virf, lower.tail = F)
+
 #in female, modification occured differentially in function of the tissue, some tissues are more subject to domain modification
 #not in male
+#slignthy in virF
