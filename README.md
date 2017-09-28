@@ -214,7 +214,7 @@ Input: 'gene_rpkm_report_fb_2017_04_formated'
 4. extract the protein length with EMBOSS
 5. run 'edgeR_topGO_analysis.R'
 6. run 'DROME_id_extraction.py'
-7. recover table of conversion from http://flybase.org/static_pages/downloads/IDConv.html
+7. recover table of conversion from http://flybase.org/static_pages/downloads/IDConv.html (input: 'DROME_only_FBgn_names')
 8. run 'DROME_id_conversion.py'
 9. run 'pair_species_trimming.py'
 10. run 'expression_analysis_all_species.R'

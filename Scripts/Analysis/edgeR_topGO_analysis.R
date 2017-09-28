@@ -291,16 +291,16 @@ logFC_into_dataframe = function(QL_sp1VSsp2_female, QL_sp1VSsp2_male, data_pair_
 
 pval_into_dataframe = function(QL_sp1VSsp2_female, QL_sp1VSsp2_male, data_pair_modif, data_pair_control){
   female_modif = data.frame(genes = QL_sp1VSsp2_female$genes[[1]][QL_sp1VSsp2_female$genes[[1]] %in% data_pair_modif],
-                            logFC = QL_sp1VSsp2_female$table$PValue[QL_sp1VSsp2_female$genes[[1]] %in% data_pair_modif], 
+                            pval = QL_sp1VSsp2_female$table$PValue[QL_sp1VSsp2_female$genes[[1]] %in% data_pair_modif], 
                             status = 'modif', sex = 'female') 
   male_modif = data.frame(genes = QL_sp1VSsp2_male$genes[[1]][QL_sp1VSsp2_male$genes[[1]] %in% data_pair_modif],
-                          logFC = QL_sp1VSsp2_male$table$PValue[QL_sp1VSsp2_male$genes[[1]] %in% data_pair_modif], 
+                          pval = QL_sp1VSsp2_male$table$PValue[QL_sp1VSsp2_male$genes[[1]] %in% data_pair_modif], 
                           status = 'modif', sex = 'male') 
   female_control = data.frame(genes = QL_sp1VSsp2_female$genes[[1]][QL_sp1VSsp2_female$genes[[1]] %in% data_pair_control],
-                              logFC = QL_sp1VSsp2_female$table$PValue[QL_sp1VSsp2_female$genes[[1]] %in% data_pair_control], 
+                              pval = QL_sp1VSsp2_female$table$PValue[QL_sp1VSsp2_female$genes[[1]] %in% data_pair_control], 
                               status = 'control', sex = 'female') 
   male_control = data.frame(genes = QL_sp1VSsp2_male$genes[[1]][QL_sp1VSsp2_male$genes[[1]] %in% data_pair_control],
-                            logFC = QL_sp1VSsp2_male$table$PValue[QL_sp1VSsp2_male$genes[[1]] %in% data_pair_control], 
+                            pval = QL_sp1VSsp2_male$table$PValue[QL_sp1VSsp2_male$genes[[1]] %in% data_pair_control], 
                             status = 'control', sex = 'male')
   
   pval_sp1VSsp2_QL = rbind( female_modif, male_modif, female_control, male_control)
@@ -322,9 +322,27 @@ topGO_data_organization = function(gene_list, considered_gene, gene_ID){
   return(gene_fbgn)
 }
 
-topGO_analysis = function(genes_list_modif, genes_list_control, GO_enrichment){
+topGO_pval_organization = function(pval_table, gene_ID){
+  gene_OMA = separate(data = data.frame(genes = as.character(pval_table$genes)),
+                      col = 'genes',into = c('sp1', 'sp2'), sep = '_')
+  gene_fbgn = c()
+  
+  for (pair in 1:dim(gene_OMA)[1]){
+    if (grepl('DROME', gene_OMA$sp1[pair])){
+      gene_fbgn[pair] = as.character(gene_ID$V2[gene_ID$V1 == gene_OMA$sp1[pair]])
+    }else{
+      gene_fbgn[pair] = as.character(gene_ID$V2[gene_ID$V1 == gene_OMA$sp2[pair]])
+    }
+  }
+  
+  dataframe_output = data.frame(genes = gene_fbgn, pval = pval_table$pval,
+                                status = pval_table$status, sex = pval_table$sex)
+  return(dataframe_output)
+}
+
+topGO_analysis = function(genes_list_modif, genes_list_control, GO_enrichment, score_limit = 0.01){
   all_genes = c(rep(0, length(genes_list_control)),rep(1, length(genes_list_modif)))
-  names(all_genes) = c(genes_list_control, genes_list_modif)
+  names(all_genes) = c(as.character(genes_list_control), as.character(genes_list_modif))
   genes_modif = all_genes[all_genes == 1]
   all_genes = as.factor(all_genes)
   genes_modif = as.factor(genes_modif)
@@ -341,10 +359,14 @@ topGO_analysis = function(genes_list_modif, genes_list_control, GO_enrichment){
   resultFisher = runTest(topGO_GO_enrichment, algorithm = "classic", statistic = "fisher")
   resultKS = runTest(topGO_GO_enrichment, algorithm = "classic", statistic = "ks")
   resultKS.elim = runTest(topGO_GO_enrichment, algorithm = "elim", statistic = "ks")
+  resultTopgo = runTest(topGO_GO_enrichment, algorithm="weight01", statistic="fisher")
+  
+  mysummary = summary(attributes(resultTopgo)$score <= score_limit)
+  numsignif = as.integer(mysummary[[3]])
   
   allRes = GenTable(topGO_GO_enrichment, classicFisher = resultFisher, 
-                    classicKS = resultKS, elimKS = resultKS.elim,
-                    orderBy = "elimKS", ranksOf = "classicFisher", topNodes = 25)
+                    classicKS = resultKS, elimKS = resultKS.elim, topGOFischer = resultTopgo,
+                    orderBy = "topGOFischer", ranksOf = "classicFisher", topNodes = numsignif)
   
   return(list(topGO_GO_enrichment, allRes, resultKS.elim))
 }
@@ -628,6 +650,7 @@ write.table(pval_drome_droya_QL, 'D:/UNIL/Master/Master_Project/Data/expression_
 #
 
 #boxplot of logFC in function of the sex and the status (control or domain modification) 
+par(mfrow = c (3,2))
 boxplot(droan_female_QL$table$logFC[droan_female_QL$genes[[1]] %in% gene_modif_droan], 
         droan_female_QL$table$logFC[droan_female_QL$genes[[1]] %in% gene_control_droan],
         droan_male_QL$table$logFC[droan_male_QL$genes[[1]] %in% gene_modif_droan],
@@ -670,6 +693,7 @@ boxplot(droya_female_QL$table$logFC[droya_female_QL$genes[[1]] %in% gene_modif_d
         main = 'Distribution of differential expression between DROME and DROYA (QL)', 
         ylab = 'LogFC', names = c('female\nmodification', 'female\ncontrol', 'male\nmodification', 'male\ncontrol'),
         cex.main = 0.8, cex.axis = 0.8)
+par(mfrow = c(1,1))
 #
 
 #distribution of logFC (histogram)
@@ -757,75 +781,111 @@ droya_control_topGO = topGO_data_organization(gene_list = droya_male_QL,
                                               gene_ID = gene_ID)
 #
 
-#topGO analysis
+#topGO analysis without taking into account DGE
 droan_topGO_BP = topGO_analysis(genes_list_modif = droan_modif_topGO,
                                 genes_list_control = droan_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(droan_topGO_BP[[1]], score(droan_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(droan_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/droan_topGO_BP')
 
 droan_topGO_MF = topGO_analysis(genes_list_modif = droan_modif_topGO,
                                 genes_list_control = droan_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(droan_topGO_MF[[1]], score(droan_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(droan_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/droan_topGO_MF')
 
 dromo_topGO_BP = topGO_analysis(genes_list_modif = dromo_modif_topGO,
                                 genes_list_control = dromo_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(dromo_topGO_BP[[1]], score(dromo_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(dromo_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/dromo_topGO_BP')
 
 dromo_topGO_MF = topGO_analysis(genes_list_modif = dromo_modif_topGO,
                                 genes_list_control = dromo_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(dromo_topGO_MF[[1]], score(dromo_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(dromo_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/dromo_topGO_MF')
 
 drops_topGO_BP = topGO_analysis(genes_list_modif = drops_modif_topGO,
                                 genes_list_control = drops_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(drops_topGO_BP[[1]], score(drops_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drops_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/drops_topGO_BP')
 
 drops_topGO_MF = topGO_analysis(genes_list_modif = drops_modif_topGO,
                                 genes_list_control = drops_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(drops_topGO_MF[[1]], score(drops_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drops_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/drops_topGO_MF')
 
 drosi_topGO_BP = topGO_analysis(genes_list_modif = drosi_modif_topGO,
                                 genes_list_control = drosi_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(drosi_topGO_BP[[1]], score(drosi_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drosi_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/drosi_topGO_BP')
 
 drosi_topGO_MF = topGO_analysis(genes_list_modif = drosi_modif_topGO,
                                 genes_list_control = drosi_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(drosi_topGO_MF[[1]], score(drosi_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drosi_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/drosi_topGO_MF')
 
 drovi_topGO_BP = topGO_analysis(genes_list_modif = drovi_modif_topGO,
                                 genes_list_control = drovi_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(drovi_topGO_BP[[1]], score(drovi_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drovi_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/drovi_topGO_BP')
 
 drovi_topGO_MF = topGO_analysis(genes_list_modif = drovi_modif_topGO,
                                 genes_list_control = drovi_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(drovi_topGO_MF[[1]], score(drovi_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(drovi_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/drovi_topGO_MF')
 
 droya_topGO_BP = topGO_analysis(genes_list_modif = droya_modif_topGO,
                                 genes_list_control = droya_control_topGO,
-                                GO_enrichment = 'BP')
+                                GO_enrichment = 'BP', score_limit = 0.01)
 showSigOfNodes(droya_topGO_BP[[1]], score(droya_topGO_BP[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(droya_topGO_BP[[2]], file = 'C:/Users/Claivaz/Desktop/droya_topGO_BP')
 
 droya_topGO_MF = topGO_analysis(genes_list_modif = droya_modif_topGO,
                                 genes_list_control = droya_control_topGO,
-                                GO_enrichment = 'MF')
+                                GO_enrichment = 'MF', score_limit = 0.01)
 showSigOfNodes(droya_topGO_MF[[1]], score(droya_topGO_MF[[3]]), firstSigNodes = 5, useInfo = 'all')
 #write.csv(droya_topGO_MF[[2]], file = 'C:/Users/Claivaz/Desktop/droya_topGO_MF')
+#
+
+#consider pvalue of differential gene expression
+droan_pvalue = topGO_pval_organization(pval_table = pval_drome_droan_QL, gene_ID = gene_ID)
+dromo_pvalue = topGO_pval_organization(pval_table = pval_drome_dromo_QL, gene_ID = gene_ID)
+drops_pvalue = topGO_pval_organization(pval_table = pval_drome_drops_QL, gene_ID = gene_ID)
+drosi_pvalue = topGO_pval_organization(pval_table = pval_drome_drosi_QL, gene_ID = gene_ID)
+drovi_pvalue = topGO_pval_organization(pval_table = pval_drome_drovi_QL, gene_ID = gene_ID)
+droya_pvalue = topGO_pval_organization(pval_table = pval_drome_droya_QL, gene_ID = gene_ID)
+#
+
+#topGO analysis with taking into account DGE
+droan_BP_male_modif_sig = topGO_analysis(genes_list_modif = droan_pvalue$genes[droan_pvalue$sex == 'male' & droan_pvalue$pval < 0.05 & droan_pvalue$status == 'modif'],
+                                         genes_list_control = droan_pvalue$genes[droan_pvalue$sex == 'male' & droan_pvalue$pval >= 0.05 & droan_pvalue$status == 'modif' | droan_pvalue$sex == 'male' & droan_pvalue$status == 'control'],
+                                         GO_enrichment = 'BP', score_limit = 0.01)
+showSigOfNodes(droan_BP_male_modif_sig[[1]], score(droan_BP_male_modif_sig[[3]]), firstSigNodes = 5, useInfo = 'all')
+#write.csv(droan_BP_male_modif_sig[[2]], file = 'C:/Users/Claivaz/Desktop/droan_BP_male_modif_sig')
+
+droan_BP_male_modif_nosig = topGO_analysis(genes_list_modif = droan_pvalue$genes[droan_pvalue$sex == 'male' & droan_pvalue$pval > 0.05 & droan_pvalue$status == 'modif'],
+                                         genes_list_control = droan_pvalue$genes[droan_pvalue$sex == 'male' & droan_pvalue$pval <= 0.05 & droan_pvalue$status == 'modif' | droan_pvalue$sex == 'male' & droan_pvalue$status == 'control'],
+                                         GO_enrichment = 'BP', score_limit = 0.01)
+showSigOfNodes(droan_BP_male_modif_nosig[[1]], score(droan_BP_male_modif_nosig[[3]]), firstSigNodes = 5, useInfo = 'all')
+#write.csv(droan_BP_male_modif_nosig[[2]], file = 'C:/Users/Claivaz/Desktop/droan_BP_male_modif_nosig')
+
+droan_BP_female_modif_sig = topGO_analysis(genes_list_modif = droan_pvalue$genes[droan_pvalue$sex == 'female' & droan_pvalue$pval < 0.05 & droan_pvalue$status == 'modif'],
+                                         genes_list_control = droan_pvalue$genes[droan_pvalue$sex == 'female' & droan_pvalue$pval >= 0.05 & droan_pvalue$status == 'modif' | droan_pvalue$sex == 'female' & droan_pvalue$status == 'control'],
+                                         GO_enrichment = 'BP', score_limit = 0.01)
+showSigOfNodes(droan_BP_female_modif_sig[[1]], score(droan_BP_female_modif_sig[[3]]), firstSigNodes = 5, useInfo = 'all')
+#write.csv(droan_BP_female_modif_sig[[2]], file = 'C:/Users/Claivaz/Desktop/droan_BP_female_modif_sig')
+
+droan_BP_female_modif_nosig = topGO_analysis(genes_list_modif = droan_pvalue$genes[droan_pvalue$sex == 'female' & droan_pvalue$pval > 0.05 & droan_pvalue$status == 'modif'],
+                                           genes_list_control = droan_pvalue$genes[droan_pvalue$sex == 'female' & droan_pvalue$pval <= 0.05 & droan_pvalue$status == 'modif' | droan_pvalue$sex == 'female' & droan_pvalue$status == 'control'],
+                                           GO_enrichment = 'BP', score_limit = 0.01)
+showSigOfNodes(droan_BP_female_modif_nosig[[1]], score(droan_BP_female_modif_nosig[[3]]), firstSigNodes = 5, useInfo = 'all')
+#write.csv(droan_BP_female_modif_nosig[[2]], file = 'C:/Users/Claivaz/Desktop/droan_BP_female_modif_nosig')
+#
