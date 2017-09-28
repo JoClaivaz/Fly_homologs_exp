@@ -108,6 +108,23 @@ flybase_expression_organization_l3 = function(fly_exp_cond){
   return(fly_exp_cond)
 }
 
+flybase_expression_organization_A_bytissue = function(fly_exp_cond, considered_tissue){
+  fly_exp_cond = separate(fly_exp_cond, col = 'RNASource_name', sep = '_', into = c('x1', 'x2', 'x3', 'time', 'tissue'))
+  fly_exp_cond$tissue = as.factor(fly_exp_cond$tissue)
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn + tissue + time, data = fly_exp_cond, paste, collapse = ' ')
+  fly_exp_cond = fly_exp_cond[fly_exp_cond$tissue == considered_tissue,]
+  
+  time_list = as.vector(unique(fly_exp_cond$time))
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn, data = fly_exp_cond, paste, collapse = '_')
+  fly_exp_cond = separate(fly_exp_cond, col = 'RPKM_value', sep = '_', into = time_list)
+  
+  for(col_num in 2:dim(fly_exp_cond)[2]){
+    fly_exp_cond[,col_num] = as.numeric(fly_exp_cond[,col_num])
+  }
+  
+  return(fly_exp_cond)
+}
+
 log_transformation_rpkm = function(data_frame){
   for (i in 2:dim(data_frame)[2]){
     data_frame[,i] = log2(data_frame[,i] + 0.000001)
@@ -606,3 +623,149 @@ df_l3 = length(fb_l3_c) - 1
 pchisq(chi_l3, df = df_l3, lower.tail = F)
 
 #no difference in tissue proportion between modification groups
+
+####3.chosen state for tissue spec: development time A (1d, 4d, 20d) in carcass and dig_sys####
+#sort dataset and filter out not considered states
+flybase_expression_A = sort_RNASource_name_keep(dataset_flybase = flybase_expression, 
+                                                 regexp_pattern = '_A_')
+flybase_expression_A = sort_RNASource_name_notkeep(dataset_flybase = flybase_expression_A, 
+                                                regexp_pattern = 'Mate')
+flybase_expression_A = sort_RNASource_name_notkeep(dataset_flybase = flybase_expression_A, 
+                                                regexp_pattern = 'VirF')
+
+
+flybase_expression_A$RNASource_name = as.character(flybase_expression_A$RNASource_name)
+unique(flybase_expression_A$RNASource_name)
+flybase_expression_A$RNASource_name[flybase_expression_A$RNASource_name == 'mE_mRNA_A_1d_dig_sys'] = 'mE_mRNA_A_1d_digsys'
+flybase_expression_A$RNASource_name[flybase_expression_A$RNASource_name == 'mE_mRNA_A_4d_dig_sys'] = 'mE_mRNA_A_4d_digsys'
+flybase_expression_A$RNASource_name[flybase_expression_A$RNASource_name == 'mE_mRNA_A_20d_dig_sys'] = 'mE_mRNA_A_20d_digsys'
+#
+
+#data organization
+flybase_expression_A_carcass = flybase_expression_organization_A_bytissue(fly_exp_cond = flybase_expression_A, considered_tissue = 'carcass')
+flybase_expression_A_digsys = flybase_expression_organization_A_bytissue(fly_exp_cond = flybase_expression_A, considered_tissue = 'digsys')
+#
+
+#Tspec calculation
+flybase_expression_A_carcass = Tspec_inference(flybase_expression_A_carcass)
+flybase_expression_A_digsys = Tspec_inference(flybase_expression_A_digsys)
+#
+
+#Inference of ubiquitous and specific gene and determine which it's the most expressed tissue for specific genes
+flybase_expression_A_carcass = specificity_inference(flybase_expression_data = flybase_expression_A_carcass,
+                                              threshold_specificity = 0.8)
+flybase_expression_A_digsys = specificity_inference(flybase_expression_data = flybase_expression_A_digsys,
+                                                     threshold_specificity = 0.8)
+#
+
+###analysis
+#dataset modification and control
+flybase_expression_A_carcass_modified = flybase_expression_A_carcass[flybase_expression_A_carcass$FBgn %in% modified_gene,]
+flybase_expression_A_carcass_control = flybase_expression_A_carcass[!(flybase_expression_A_carcass$FBgn %in% modified_gene),]
+flybase_expression_A_digsys_modified = flybase_expression_A_digsys[flybase_expression_A_digsys$FBgn %in% modified_gene,]
+flybase_expression_A_digsys_control = flybase_expression_A_digsys[!(flybase_expression_A_digsys$FBgn %in% modified_gene),]
+
+hist(flybase_expression_A_carcass_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in carcass tissue in fly', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_A_carcass_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+hist(flybase_expression_A_digsys_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in digsys tissue in fly', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_A_digsys_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+fb_A_c_c = table(flybase_expression_A_carcass_control$specificity)
+fb_A_c_m_tmp = table(flybase_expression_A_carcass_modified$specificity)
+fb_A_d_c = table(flybase_expression_A_digsys_control$specificity)
+fb_A_d_m_tmp = table(flybase_expression_A_digsys_modified$specificity)
+fb_A_c_m = fb_A_c_c 
+for (list_tmp in 1:dim(fb_A_c_m)){
+  if (names(fb_A_c_m[list_tmp]) %in% names(fb_A_c_m_tmp)){
+    fb_A_c_m[list_tmp] = fb_A_c_m_tmp[names(fb_A_c_m[list_tmp])]
+  }else{
+    fb_A_c_m[list_tmp] = 0
+  }
+}
+fb_A_d_m = fb_A_d_c
+for (list_tmp in 1:dim(fb_A_d_m)){
+  if (names(fb_A_d_m[list_tmp]) %in% names(fb_A_d_m_tmp)){
+    fb_A_d_m[list_tmp] = fb_A_d_m_tmp[names(fb_A_d_m[list_tmp])]
+  }else{
+    fb_A_d_m[list_tmp] = 0
+  }
+}
+
+col = palette()
+considered_table = fb_A_c_c
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in carcass control genes", col = col)
+
+considered_table = fb_A_c_m
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in carcass modified genes", col = col)
+
+col = palette()
+considered_table = fb_A_d_c
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in digsys control genes", col = col)
+
+considered_table = fb_A_d_m
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in digsys modified genes", col = col)
+
+#test anova application
+anova_df_carcass = rbind(flybase_expression_A_carcass_control, flybase_expression_A_carcass_modified)
+anova_df_carcass$modif_status = c(rep(0, length(flybase_expression_A_carcass_control$tspec)),
+                             rep(1, length(flybase_expression_A_carcass_modified$tspec)))
+anova_df_carcass$modif_status = as.factor(anova_df_carcass$modif_status)
+
+model_test_carcass = aov(anova_df_carcass$tspec ~ anova_df_carcass$modif_status)
+qqnorm(residuals(model_test_carcass)); qqline(residuals(model_test_carcass))
+summary(model_test_carcass)
+kruskal.test(anova_df_carcass$tspec ~ anova_df_carcass$modif_status)
+
+anova_df_digsys = rbind(flybase_expression_A_digsys_control, flybase_expression_A_digsys_modified)
+anova_df_digsys$modif_status = c(rep(0, length(flybase_expression_A_digsys_control$tspec)),
+                                  rep(1, length(flybase_expression_A_digsys_modified$tspec)))
+anova_df_digsys$modif_status = as.factor(anova_df_digsys$modif_status)
+
+model_test_digsys = aov(anova_df_digsys$tspec ~ anova_df_digsys$modif_status)
+qqnorm(residuals(model_test_digsys)); qqline(residuals(model_test_digsys))
+summary(model_test_digsys)
+kruskal.test(anova_df_digsys$tspec ~ anova_df_digsys$modif_status)
+
+#table proportion
+fb_A_c_c_p = fb_A_c_c / sum(fb_A_c_c)
+fb_A_c_m_p = fb_A_c_m / sum(fb_A_c_m)
+fb_A_d_c_p = fb_A_d_c / sum(fb_A_d_c)
+fb_A_d_m_p = fb_A_d_m / sum(fb_A_d_m)
+
+#chi-square test: comparison between control and modification 
+n_A_c_c = sum(fb_A_c_c +  fb_A_c_m)
+n_A_c_c = sum(fb_A_c_c)
+n_A_c_m = sum(fb_A_c_m)
+p_A_c = n_A_c_m / (n_A_c_c + n_A_c_m)
+s_A_c = fb_A_c_c +  fb_A_c_m
+exp_A_c_m = s_A_c * p_A_c
+exp_A_c_c = s_A_c * (1 - p_A_c)
+
+chi_A_c = sum((fb_A_c_m - exp_A_c_m)^2 / exp_A_c_m) + sum((fb_A_c_c - exp_A_c_c)^2 / exp_A_c_c)
+df_A_c = length(fb_A_c_c) - 1
+pchisq(chi_A_c, df = df_A_c, lower.tail = F)
+
+n_A_d_c = sum(fb_A_d_c +  fb_A_d_m)
+n_A_d_c = sum(fb_A_d_c)
+n_A_d_m = sum(fb_A_d_m)
+p_A_d = n_A_d_m / (n_A_d_c + n_A_d_m)
+s_A_d = fb_A_d_c +  fb_A_d_m
+exp_A_d_m = s_A_d * p_A_d
+exp_A_d_c = s_A_d * (1 - p_A_d)
+
+chi_A_d = sum((fb_A_d_m - exp_A_d_m)^2 / exp_A_d_m) + sum((fb_A_d_c - exp_A_d_c)^2 / exp_A_d_c)
+df_A_d = length(fb_A_d_c) - 1
+pchisq(chi_A_d, df = df_A_d, lower.tail = F)
+
+#no difference in time point proportion between modification groups
