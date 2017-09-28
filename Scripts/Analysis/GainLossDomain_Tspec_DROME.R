@@ -313,10 +313,15 @@ common_dataset_completecase_modif$length_dif = as.factor(common_dataset_complete
 table(common_dataset_completecase_modif$length_dif)
 
 #Analysis
-hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '1'], breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of logFC in function of gain/loss of domain in DROME', xlab = 'logFC value', cex.main = 0.8, xlim = c(-15, 10))
-hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '-1'], breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '1' & common_dataset_completecase_modif$sex == 'female'], breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of logFC in function of gain/loss of domain in DROME female', xlab = 'logFC value', cex.main = 0.8, xlim = c(-15, 10))
+hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '-1' & common_dataset_completecase_modif$sex == 'female'], breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
 legend('right', c("modification +1", "modification -1"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
-model_modif = lm(logFC ~ as.factor(length_dif) + sex, data = common_dataset_completecase_modif)
+
+hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '1' & common_dataset_completecase_modif$sex == 'male'], breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of logFC in function of gain/loss of domain in DROME male', xlab = 'logFC value', cex.main = 0.8, xlim = c(-15, 10))
+hist(common_dataset_completecase_modif$logFC[common_dataset_completecase_modif$length_dif == '-1' & common_dataset_completecase_modif$sex == 'male'], breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('right', c("modification +1", "modification -1"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+model_modif = lm(logFC ~ as.factor(length_dif) + as.factor(sex), data = common_dataset_completecase_modif)
 anova(model_modif)
 #no effect of sex, length highly significative
 
