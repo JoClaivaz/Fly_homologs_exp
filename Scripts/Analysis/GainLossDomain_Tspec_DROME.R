@@ -478,16 +478,19 @@ model_test_female = aov(anova_df_female$tspec ~ anova_df_female$modif_status)
 qqnorm(residuals(model_test_female)); qqline(residuals(model_test_female))
 summary(model_test_female)
 kruskal.test(anova_df_female$tspec ~ anova_df_female$modif_status)
+kruskal.test(anova_df_female$specificity ~ anova_df_female$modif_status)
 
 model_test_male = aov(anova_df_male$tspec ~ anova_df_male$modif_status)
 qqnorm(residuals(model_test_male)); qqline(residuals(model_test_male))
 summary(model_test_male)
 kruskal.test(anova_df_male$tspec ~ anova_df_male$modif_status)
+kruskal.test(anova_df_male$specificity ~ anova_df_male$modif_status)
 
 model_test_virf = aov(anova_df_virf$tspec ~ anova_df_virf$modif_status)
 qqnorm(residuals(model_test_virf)); qqline(residuals(model_test_virf))
 summary(model_test_virf)
 kruskal.test(anova_df_virf$tspec ~ anova_df_virf$modif_status)
+kruskal.test(anova_df_virf$specificity ~ anova_df_virf$modif_status)
 
 #table proportion
 fb_female_m_p = fb_female_m / sum(fb_female_m)
@@ -604,6 +607,7 @@ model_test_l3 = aov(anova_df_l3$tspec ~ anova_df_l3$modif_status)
 qqnorm(residuals(model_test_l3)); qqline(residuals(model_test_l3))
 summary(model_test_l3)
 kruskal.test(anova_df_l3$tspec ~ anova_df_l3$modif_status)
+kruskal.test(anova_df_l3$specificity ~ anova_df_l3$modif_status)
 
 #table proportion
 fb_l3_c_p = fb_l3_c / sum(fb_l3_c)
@@ -726,6 +730,7 @@ model_test_carcass = aov(anova_df_carcass$tspec ~ anova_df_carcass$modif_status)
 qqnorm(residuals(model_test_carcass)); qqline(residuals(model_test_carcass))
 summary(model_test_carcass)
 kruskal.test(anova_df_carcass$tspec ~ anova_df_carcass$modif_status)
+kruskal.test(anova_df_carcass$specificity ~ anova_df_carcass$modif_status)
 
 anova_df_digsys = rbind(flybase_expression_A_digsys_control, flybase_expression_A_digsys_modified)
 anova_df_digsys$modif_status = c(rep(0, length(flybase_expression_A_digsys_control$tspec)),
@@ -736,6 +741,7 @@ model_test_digsys = aov(anova_df_digsys$tspec ~ anova_df_digsys$modif_status)
 qqnorm(residuals(model_test_digsys)); qqline(residuals(model_test_digsys))
 summary(model_test_digsys)
 kruskal.test(anova_df_digsys$tspec ~ anova_df_digsys$modif_status)
+kruskal.test(anova_df_digsys$specificity ~ anova_df_digsys$modif_status)
 
 #table proportion
 fb_A_c_c_p = fb_A_c_c / sum(fb_A_c_c)
