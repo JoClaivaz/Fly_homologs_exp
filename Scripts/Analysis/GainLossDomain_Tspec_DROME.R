@@ -125,6 +125,22 @@ flybase_expression_organization_A_bytissue = function(fly_exp_cond, considered_t
   return(fly_exp_cond)
 }
 
+flybase_expression_organization_fat = function(fly_exp_cond){
+  fly_exp_cond = separate(fly_exp_cond, col = 'RNASource_name', sep = '_', into = c('x1', 'x2', 'tissue', 'x4'))
+  fly_exp_cond$tissue = as.factor(fly_exp_cond$tissue)
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn + tissue, data = fly_exp_cond, paste, collapse = ' ')
+  
+  tissue_list = as.vector(unique(fly_exp_cond$tissue))
+  fly_exp_cond = aggregate(RPKM_value ~ FBgn, data = fly_exp_cond, paste, collapse = '_')
+  fly_exp_cond = separate(fly_exp_cond, col = 'RPKM_value', sep = '_', into = tissue_list)
+  
+  for(col_num in 2:dim(fly_exp_cond)[2]){
+    fly_exp_cond[,col_num] = as.numeric(fly_exp_cond[,col_num])
+  }
+  
+  return(fly_exp_cond)
+}
+
 log_transformation_rpkm = function(data_frame){
   for (i in 2:dim(data_frame)[2]){
     data_frame[,i] = log2(data_frame[,i] + 0.000001)
@@ -775,3 +791,89 @@ df_A_d = length(fb_A_d_c) - 1
 pchisq(chi_A_d, df = df_A_d, lower.tail = F)
 
 #no difference in time point proportion between modification groups
+
+####4.chosen state for tissue spec: fat####
+#sort dataset and filter out not considered states
+flybase_expression_fat = sort_RNASource_name_keep(dataset_flybase = flybase_expression, 
+                                                 regexp_pattern = 'fat')
+
+flybase_expression_fat$RNASource_name = as.character(flybase_expression_fat$RNASource_name)
+unique(flybase_expression_fat$RNASource_name)
+flybase_expression_fat$RNASource_name[flybase_expression_fat$RNASource_name == 'mE_mRNA_L3_Wand_fat'] = 'mE_mRNA_L3_fat'
+flybase_expression_fat$RNASource_name[flybase_expression_fat$RNASource_name == 'mE_mRNA_fat_Wand_imag_disc'] = 'mE_mRNA_fat_Wand_imagdisc'
+flybase_expression_fat$RNASource_name[flybase_expression_fat$RNASource_name == 'mE_mRNA_fat_Wand_dig_sys'] = 'mE_mRNA_fat_Wand_digsys'
+#
+
+#data organization
+flybase_expression_fat = flybase_expression_organization_fat(fly_exp_cond = flybase_expression_fat)
+#
+
+#Tspec calculation
+flybase_expression_fat = Tspec_inference(flybase_expression_fat)
+#
+
+#Inference of ubiquitous and specific gene and determine which it's the most expressed tissue for specific genes
+flybase_expression_fat = specificity_inference(flybase_expression_data = flybase_expression_fat,
+                                              threshold_specificity = 0.8)
+#
+
+###analysis
+#dataset modification and control
+flybase_expression_fat_modified = flybase_expression_fat[flybase_expression_fat$FBgn %in% modified_gene,]
+flybase_expression_fat_control = flybase_expression_fat[!(flybase_expression_fat$FBgn %in% modified_gene),]
+
+hist(flybase_expression_fat_modified$tspec, breaks = 100, freq = F, col = rgb(1, 0 , 0, 0.5), main = 'Distribution of Tspec in fat tissue DROME', xlab = 'Tspec value', cex.main = 0.9)
+hist(flybase_expression_fat_control$tspec, breaks = 100, freq = F, col = rgb(0, 0 , 1, 0.5), add = T)
+legend('top', c("Domain modification", "No modification"), fill = c(rgb(1, 0, 0, 0.5), rgb(0, 0, 1, 0.5)), cex = 0.8, horiz = F)
+
+fb_fat_c = table(flybase_expression_fat_control$specificity)
+fb_fat_m_tmp = table(flybase_expression_fat_modified$specificity)
+fb_fat_m = fb_fat_c
+for (list_tmp in 1:dim(fb_fat_m)){
+  if (names(fb_fat_m[list_tmp]) %in% names(fb_fat_m_tmp)){
+    fb_fat_m[list_tmp] = fb_fat_m_tmp[names(fb_fat_m[list_tmp])]
+  }else{
+    fb_fat_m[list_tmp] = 0
+  }
+}
+
+col = palette()
+considered_table = fb_fat_c
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in control fat genes", col = col)
+
+considered_table = fb_fat_m
+lbls = paste(names(considered_table), sep= "")
+pie(considered_table, labels = lbls, cex = 0.5, 
+    main = "Specificity in modified fat genes", col = col)
+
+#test anova application
+anova_df_fat = rbind(flybase_expression_fat_control, flybase_expression_fat_modified)
+anova_df_fat$modif_status = c(rep(0, length(flybase_expression_fat_control$tspec)),
+                             rep(1, length(flybase_expression_fat_modified$tspec)))
+anova_df_fat$modif_status = as.factor(anova_df_fat$modif_status)
+
+model_test_fat = aov(anova_df_fat$tspec ~ anova_df_fat$modif_status)
+qqnorm(residuals(model_test_fat)); qqline(residuals(model_test_fat))
+summary(model_test_fat)
+kruskal.test(anova_df_fat$tspec ~ anova_df_fat$modif_status)
+kruskal.test(anova_df_fat$specificity ~ anova_df_fat$modif_status)
+
+#table proportion
+fb_fat_c_p = fb_fat_c / sum(fb_fat_c)
+fb_fat_m_p = fb_fat_m / sum(fb_fat_m)
+
+#chi-square test: comparison between control and modification 
+n_fat = sum(fb_fat_c +  fb_fat_m)
+n_fat_c = sum(fb_fat_c)
+n_fat_m = sum(fb_fat_m)
+p_fat = n_fat_m / (n_fat_c + n_fat_m)
+s_fat = fb_fat_c +  fb_fat_m
+exp_fat_m = s_fat * p_fat
+exp_fat_c = s_fat * (1 - p_fat)
+
+chi_fat = sum((fb_fat_m - exp_fat_m)^2 / exp_fat_m) + sum((fb_fat_c - exp_fat_c)^2 / exp_fat_c)
+df_fat = length(fb_fat_c) - 1
+pchisq(chi_fat, df = df_fat, lower.tail = F)
+#no difference in developmental time proportion between modification groups
